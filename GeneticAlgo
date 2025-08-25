@@ -1,0 +1,121 @@
+import random
+import math
+
+# Coordinates of cities (you can change this to your own data)
+cities = [
+    (0, 0),
+    (1, 5),
+    (5, 2),
+    (6, 6),
+    (8, 3),
+    (2, 1)
+]
+
+
+def distance(city1, city2):
+    # Euclidean distance between two cities
+    return math.sqrt((city1[0] - city2[0])**2 + (city1[1] - city2[1])**2)
+
+def total_distance(tour):
+    # Total distance of the tour (circular path)
+    dist = 0
+    for i in range(len(tour)):
+        city_current = cities[tour[i]]
+        city_next = cities[tour[(i + 1) % len(tour)]]  # Wrap around
+        dist += distance(city_current, city_next)
+    return dist
+
+def fitness(tour):
+    # Fitness is the inverse of total distance (higher fitness = better tour)
+    dist = total_distance(tour)
+    return 1 / dist if dist > 0 else float('inf')
+
+def create_population(pop_size, num_cities):
+    # Create initial random population
+    population = []
+    base_tour = list(range(num_cities))
+    for _ in range(pop_size):
+        individual = base_tour[:]
+        random.shuffle(individual)
+        population.append(individual)
+    return population
+
+def selection(population, fitnesses):
+    # Roulette wheel selection based on fitness
+    total_fit = sum(fitnesses)
+    probs = [f / total_fit for f in fitnesses]
+
+    def select_one():
+        r = random.random()
+        cumulative = 0
+        for i, p in enumerate(probs):
+            cumulative += p
+            if r <= cumulative:
+                return population[i]
+        return population[-1]  # Fallback return
+
+    return select_one(), select_one()
+
+def crossover(parent1, parent2):
+    # Ordered Crossover (OX)
+    size = len(parent1)
+    start, end = sorted(random.sample(range(size), 2))
+    child = [None] * size
+
+    # Copy slice from parent1
+    for i in range(start, end + 1):
+        child[i] = parent1[i]
+
+    # Fill remaining genes from parent2
+    pos = (end + 1) % size
+    for gene in parent2:
+        if gene not in child:
+            child[pos] = gene
+            pos = (pos + 1) % size
+
+    return child
+
+def mutate(tour, mutation_rate):
+    # Swap mutation
+    for i in range(len(tour)):
+        if random.random() < mutation_rate:
+            j = random.randint(0, len(tour) - 1)
+            tour[i], tour[j] = tour[j], tour[i]
+
+# ---------- Main Genetic Algorithm ----------
+
+def genetic_algorithm_tsp(pop_size=100, generations=500, mutation_rate=0.01):
+    population = create_population(pop_size, len(cities))
+    best_tour = None
+    best_distance = float('inf')
+
+    for gen in range(generations):
+        fitnesses = [fitness(tour) for tour in population]
+        new_population = []
+
+        for _ in range(pop_size // 2):
+            parent1, parent2 = selection(population, fitnesses)
+            child1 = crossover(parent1, parent2)
+            child2 = crossover(parent2, parent1)
+
+            mutate(child1, mutation_rate)
+            mutate(child2, mutation_rate)
+
+            new_population.extend([child1, child2])
+
+        population = new_population
+
+        # Track best tour in this generation
+        for tour in population:
+            dist = total_distance(tour)
+            if dist < best_distance:
+                best_distance = dist
+                best_tour = tour
+
+        # Print status every 50 generations
+        if gen % 50 == 0:
+            print(f"Generation {gen}: Best distance = {best_distance:.3f}")
+
+    print("\nFinal Result:")
+    print("Best tour found:", best_tour)
+    print("Total distance:", best_distance)
