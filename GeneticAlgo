@@ -119,3 +119,4 @@ def genetic_algorithm_tsp(pop_size=100, generations=500, mutation_rate=0.01):
     print("\nFinal Result:")
     print("Best tour found:", best_tour)
     print("Total distance:", best_distance)
+
