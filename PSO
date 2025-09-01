@@ -1,0 +1,46 @@
+import random
+
+# Simple fitness function example (replace with real fitness)
+def fitness(shift):
+    return abs(shift - 3)  # Assume 3 is the real key
+
+# Parameters
+num_particles = 5
+max_iter = 10
+w, c1, c2 = 0.5, 1, 1
+
+# Initialize particles randomly between 0 and 25
+positions = [random.uniform(0, 25) for _ in range(num_particles)]
+velocities = [0.0 for _ in range(num_particles)]
+
+pbest_positions = positions[:]
+pbest_fitness = [fitness(p) for p in positions]
+
+gbest_index = pbest_fitness.index(min(pbest_fitness))
+gbest_position = pbest_positions[gbest_index]
+gbest_fitness = pbest_fitness[gbest_index]
+
+for _ in range(max_iter):
+    for i in range(num_particles):
+        r1, r2 = random.random(), random.random()
+        velocities[i] = (w * velocities[i]
+                         + c1 * r1 * (pbest_positions[i] - positions[i])
+                         + c2 * r2 * (gbest_position - positions[i]))
+
+        positions[i] += velocities[i]
+        # Clamp position to [0, 25]
+        positions[i] = max(0, min(positions[i], 25))
+
+        fit = fitness(positions[i])
+
+        if fit < pbest_fitness[i]:
+            pbest_fitness[i] = fit
+            pbest_positions[i] = positions[i]
+
+        if fit < gbest_fitness:
+            gbest_fitness = fit
+            gbest_position = positions[i]
+
+    print(f"Best fitness: {gbest_fitness:.4f}, Best shift: {gbest_position:.2f}")
+
+print(f"\nBest key found: {round(gbest_position)}")
