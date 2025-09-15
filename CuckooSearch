@@ -1,0 +1,90 @@
+import random
+import math
+
+# Problem Definition
+
+values = [60, 100, 120, 80, 30]   # Item values
+weights = [10, 20, 30, 15, 5]     # Item weights
+capacity = 50                     # Knapsack capacity
+n_items = len(values)
+
+# Fitness Function
+
+def fitness(solution):
+    """Evaluate total value; penalize if overweight"""
+    total_value = 0
+    total_weight = 0
+    for i in range(n_items):
+        if solution[i] == 1:
+            total_value += values[i]
+            total_weight += weights[i]
+    if total_weight > capacity:
+        return 0   # Penalize infeasible solutions
+    return total_value
+
+
+# Generate Random Solution
+
+def random_solution():
+    return [random.randint(0, 1) for _ in range(n_items)]
+
+
+# Lévy Flight Step
+
+def levy_flight(beta=1.5):
+    """Generate step size using Mantegna’s algorithm"""
+    u = random.gauss(0, 1) * (math.gamma(1 + beta) * math.sin(math.pi * beta / 2) /
+                               (math.gamma((1 + beta) / 2) * beta * 2 ** ((beta - 1) / 2))) ** (1 / beta)
+    v = random.gauss(0, 1)
+    step = u / abs(v) ** (1 / beta)
+    return step
+
+
+# Generate New Solution
+
+def generate_new_solution(old_solution):
+    new_solution = old_solution[:]
+    step_size = levy_flight()
+
+    # Flip bits randomly based on step size
+    for i in range(n_items):
+        if random.random() < 1 / (1 + abs(step_size)):  # probability depends on step size
+            new_solution[i] = 1 - new_solution[i]  # Flip 0 <-> 1
+    return new_solution
+
+
+# Cuckoo Search Algorithm
+
+def cuckoo_search(n_nests=10, max_iter=100, pa=0.25):
+    # Initialize nests
+    nests = [random_solution() for _ in range(n_nests)]
+    best = max(nests, key=fitness)
+
+    for _ in range(max_iter):
+        # Generate new solutions via Levy flight
+        for i in range(n_nests):
+            new_sol = generate_new_solution(nests[i])
+            if fitness(new_sol) > fitness(nests[i]):
+                nests[i] = new_sol
+
+        # Abandon a fraction of worst nests
+        n_abandon = int(pa * n_nests)
+        nests.sort(key=fitness, reverse=True)  # Sort by fitness
+        for i in range(n_nests - n_abandon, n_nests):
+            nests[i] = random_solution()
+
+        # Update global best
+        current_best = max(nests, key=fitness)
+        if fitness(current_best) > fitness(best):
+            best = current_best
+
+    return best, fitness(best)
+
+
+# Run the Algorithm
+
+best_solution, best_value = cuckoo_search()
+
+print("Best Solution:", best_solution)
+print("Total Value:", best_value)
+print("Total Weight:", sum(weights[i] for i in range(n_items) if best_solution[i] == 1))
