@@ -1,0 +1,59 @@
+import numpy as np
+
+# Simulate the game environment for enemy AI performance
+def evaluate_performance(speed, aggression, defense):
+    """
+    Evaluate the AI's performance in a combat situation.
+    For simplicity, the performance is a weighted sum of AI parameters.
+    You can replace this with a more complex evaluation function.
+    """
+    performance = (speed * 0.4 + aggression * 0.4 + defense * 0.2)  # Weighted sum
+    return performance
+
+# Function for Levy Flight optimization
+def levy_flight(nest, step_size=0.05):
+    """
+    Perform Levy flight to adjust AI parameters.
+    nest: AI parameters (speed, aggression, defense, decision-making)
+    step_size: How large the random step is
+    """
+    # Generate random steps using Levy flight (normal distribution)
+    step = np.random.normal(0, step_size, size=len(nest))  # Random step
+    new_nest = nest + step  # Apply the step to the AI parameters
+    new_nest = np.clip(new_nest, 0, 1)  # Ensure parameters stay within valid range (0 to 1)
+    return new_nest
+
+# Main function to optimize AI behavior
+def optimize_game_ai():
+    # Initial AI behavior parameters (speed, aggression, defense, decision-making)
+    nest = np.array([0.5, 0.5, 0.5, 0.5])  # Example: [speed, aggression, defense, decision-making]
+    
+    # Number of iterations for optimization
+    num_iterations = 10  # For simplicity, 10 iterations to evolve the AI
+    
+    # Performance history to track how the AI improves over iterations
+    performance_history = []
+    
+    print("Initial AI Behavior (Nest):", nest)
+    
+    # Optimize AI behavior over multiple iterations using Levy flight
+    for i in range(num_iterations):
+        # Evaluate the current AI behavior
+        performance = evaluate_performance(*nest)
+        performance_history.append(performance)
+        
+        print(f"Iteration {i+1}: AI Behavior = {nest} | Performance = {performance:.2f}")
+        
+        # Perform Levy flight to modify the AI behavior (parameters)
+        nest = levy_flight(nest, step_size=0.05)
+    
+    # Print final optimized behavior and performance
+    final_performance = evaluate_performance(*nest)
+    print("\nOptimized AI Behavior (Final Nest):", nest)
+    print(f"Final Performance: {final_performance:.2f}")
+    
+    # Show performance over all iterations
+    print("\nPerformance over Iterations:", performance_history)
+
+# Run the AI optimization
+optimize_game_ai()
