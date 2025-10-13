@@ -1,0 +1,96 @@
+import random
+
+# -----------------------------
+# Step 1: Define network grid
+# -----------------------------
+GRID_SIZE = 3
+MAX_ITER = 5  # number of time steps
+
+# Cell states: 0=Normal, 1=Warning, 2=Suspicious
+cell_states = [[0 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+suspicion_scores = [[0.0 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+
+# Normal traffic baseline
+normal_packets = [[100 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+
+# -----------------------------
+# Step 2: Neighbors function
+# -----------------------------
+def get_neighbors(i, j):
+    neighbors = []
+    for x in range(max(0, i-1), min(GRID_SIZE, i+2)):
+        for y in range(max(0, j-1), min(GRID_SIZE, j+2)):
+            if x == i and y == j:
+                continue
+            neighbors.append((x, y))
+    return neighbors
+
+# -----------------------------
+# Step 3: Simulate traffic
+# -----------------------------
+def simulate_traffic(t):
+    # Normal traffic with small random variation
+    traffic = [[normal_packets[i][j] + random.randint(-5,5) for j in range(GRID_SIZE)] for i in range(GRID_SIZE)]
+
+    # Inject attack at center at time step 2
+    if t == 2:
+        traffic[1][1] += 100  # spike for attack
+    # Spread effect to neighbors at time step 3
+    if t >= 3:
+        for ni, nj in [(0,1),(1,0),(1,2),(2,1)]:
+            traffic[ni][nj] += 50
+    return traffic
+
+# -----------------------------
+# Step 4: Update cells
+# -----------------------------
+def update_cells(traffic):
+    global suspicion_scores, cell_states
+    new_scores = [[0.0 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
+
+    for i in range(GRID_SIZE):
+        for j in range(GRID_SIZE):
+            # Local anomaly
+            local_anomaly = abs(traffic[i][j] - normal_packets[i][j]) / normal_packets[i][j]
+
+            # Neighbor influence
+            neighbors = get_neighbors(i,j)
+            if neighbors:
+                neighbor_influence = sum(suspicion_scores[x][y] for x,y in neighbors) / len(neighbors)
+            else:
+                neighbor_influence = 0.0
+
+            # Update suspicion score
+            w1, w2, w3 = 0.5, 0.3, 0.2
+            new_score = w1*local_anomaly + w2*neighbor_influence + w3*suspicion_scores[i][j]
+            new_scores[i][j] = min(new_score,1.0)
+
+            # Update state using thresholds
+            if new_score < 0.3:
+                cell_states[i][j] = 0  # Normal
+            elif new_score < 0.6:
+                cell_states[i][j] = 1  # Warning
+            else:
+                cell_states[i][j] = 2  # Suspicious
+
+    suspicion_scores = new_scores
+
+# -----------------------------
+# Step 5: Run simulation
+# -----------------------------
+for t in range(MAX_ITER):
+    print(f"\n--- Time Step {t+1} ---")
+    traffic = simulate_traffic(t)
+    update_cells(traffic)
+
+    print("Traffic Grid:")
+    for row in traffic:
+        print(row)
+
+    print("Suspicion Scores:")
+    for row in suspicion_scores:
+        print([round(s,2) for s in row])
+
+    print("Cell States (0=Normal,1=Warning,2=Suspicious):")
+    for row in cell_states:
+        print(row)
