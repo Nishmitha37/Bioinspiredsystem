@@ -1,0 +1,115 @@
+import random
+import math
+
+# -------------------------------------------------------
+#  Target Software Function to Test
+#  (You can replace this with any function you want to test)
+# -------------------------------------------------------
+def software_under_test(x, y):
+    # Example function with different conditions (like branches)
+    if x + y > 15:
+        if x > y:
+            return "A"
+        else:
+            return "B"
+    elif x - y < 5:
+        return "C"
+    else:
+        return "D"
+
+# -------------------------------------------------------
+#  Fitness Function
+#  Measures test case diversity + branch coverage
+# -------------------------------------------------------
+def fitness_function(test_case):
+    x, y = test_case
+    # Simulate program output
+    result = software_under_test(x, y)
+    
+    # Assign coverage-based fitness (arbitrary scoring logic)
+    if result == "A":
+        score = 0.9
+    elif result == "B":
+        score = 0.8
+    elif result == "C":
+        score = 0.7
+    else:
+        score = 0.6
+    
+    # Add input diversity factor
+    diversity = 1 - abs(x - y) / 20
+    return score * diversity
+
+# -------------------------------------------------------
+#  Grey Wolf Optimizer (GWO)
+# -------------------------------------------------------
+def gwo_test_generation(num_wolves=8, max_iter=30, dim=2, lb=0, ub=20):
+    # Initialize population (test cases)
+    wolves = [[random.uniform(lb, ub) for _ in range(dim)] for _ in range(num_wolves)]
+    
+    # Initialize alpha, beta, delta wolves
+    Alpha_pos, Beta_pos, Delta_pos = [0]*dim, [0]*dim, [0]*dim
+    Alpha_score = float('-inf')
+    Beta_score = float('-inf')
+    Delta_score = float('-inf')
+    
+    # Main optimization loop
+    for iteration in range(max_iter):
+        for i in range(num_wolves):
+            # Calculate fitness
+            fitness = fitness_function(wolves[i])
+            
+            # Update Alpha, Beta, Delta
+            if fitness > Alpha_score:
+                Delta_score, Delta_pos = Beta_score, Beta_pos
+                Beta_score, Beta_pos = Alpha_score, Alpha_pos
+                Alpha_score, Alpha_pos = fitness, wolves[i]
+            elif fitness > Beta_score:
+                Delta_score, Delta_pos = Beta_score, Beta_pos
+                Beta_score, Beta_pos = fitness, wolves[i]
+            elif fitness > Delta_score:
+                Delta_score, Delta_pos = fitness, wolves[i]
+        
+        # Update position of wolves
+        a = 2 - iteration * (2 / max_iter)  # linearly decreasing from 2 to 0
+        
+        for i in range(num_wolves):
+            for j in range(dim):
+                r1, r2 = random.random(), random.random()
+                A1 = 2 * a * r1 - a
+                C1 = 2 * r2
+                
+                D_alpha = abs(C1 * Alpha_pos[j] - wolves[i][j])
+                X1 = Alpha_pos[j] - A1 * D_alpha
+
+                r1, r2 = random.random(), random.random()
+                A2 = 2 * a * r1 - a
+                C2 = 2 * r2
+                D_beta = abs(C2 * Beta_pos[j] - wolves[i][j])
+                X2 = Beta_pos[j] - A2 * D_beta
+
+                r1, r2 = random.random(), random.random()
+                A3 = 2 * a * r1 - a
+                C3 = 2 * r2
+                D_delta = abs(C3 * Delta_pos[j] - wolves[i][j])
+                X3 = Delta_pos[j] - A3 * D_delta
+
+                # New position
+                wolves[i][j] = (X1 + X2 + X3) / 3
+
+                # Boundary check
+                wolves[i][j] = max(lb, min(wolves[i][j], ub))
+        
+        print(f"Iteration {iteration+1}/{max_iter} | Best Fitness: {Alpha_score:.4f}")
+
+    print("\nBest Test Case Found:", Alpha_pos)
+    print("Best Fitness Value:", Alpha_score)
+    return Alpha_pos, Alpha_score
+
+# -------------------------------------------------------
+#  Run the Optimization
+# -------------------------------------------------------
+best_case, best_fit = gwo_test_generation()
+
+print("\nOptimized Test Case ->", best_case)
+print("Fitness (Coverage/Effectiveness):", best_fit)
