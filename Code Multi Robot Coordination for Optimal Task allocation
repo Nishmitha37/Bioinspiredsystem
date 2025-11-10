@@ -1,0 +1,74 @@
+import numpy as np
+
+
+num_robots = 3     
+num_tasks = 5   
+
+# Example cost matrix (rows = robots, cols = tasks)
+cost = np.array([
+    [9, 2, 7, 8, 6],
+    [6, 4, 3, 7, 5],
+    [5, 8, 1, 8, 7]
+])
+
+
+num_particles = 20
+max_iter = 50
+w = 0.5      # inertia
+c1 = 1.5     # personal learning
+c2 = 1.5     # social learning
+
+def fitness(position):
+    # Convert continuous position values into discrete robot indices
+    assignment = np.round(position).astype(int)
+    assignment = np.clip(assignment, 0, num_robots - 1)
+    total_cost = sum(cost[assignment[j], j] for j in range(num_tasks))
+    return total_cost
+
+positions = np.random.uniform(0, num_robots - 1, (num_particles, num_tasks))
+velocities = np.zeros_like(positions)
+
+personal_best = positions.copy()
+personal_best_score = np.array([fitness(p) for p in positions])
+
+best_idx = np.argmin(personal_best_score)
+global_best = personal_best[best_idx].copy()
+global_best_score = personal_best_score[best_idx]
+
+
+for t in range(max_iter):
+    for i in range(num_particles):
+        r1, r2 = np.random.rand(num_tasks), np.random.rand(num_tasks)
+        
+        velocities[i] = (w * velocities[i] +
+                         c1 * r1 * (personal_best[i] - positions[i]) +
+                         c2 * r2 * (global_best - positions[i]))
+        
+        positions[i] += velocities[i]
+        positions[i] = np.clip(positions[i], 0, num_robots - 1)
+        
+        score = fitness(positions[i])
+        
+        if score < personal_best_score[i]:
+            personal_best_score[i] = score
+            personal_best[i] = positions[i].copy()
+    
+    # Update global best
+    best_idx = np.argmin(personal_best_score)
+    if personal_best_score[best_idx] < global_best_score:
+        global_best_score = personal_best_score[best_idx]
+        global_best = personal_best[best_idx].copy()
+    
+    # Print progress
+    if t % 10 == 0:
+        print(f"Iteration {t}: Best cost = {global_best_score:.2f}")
+
+best_assignment = np.round(global_best).astype(int)
+print("\nOptimal task-to-robot assignment:", best_assignment)
+print("Minimum total cost:", global_best_score)
+
+
+
+
+
+
