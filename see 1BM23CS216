@@ -1,0 +1,124 @@
+import numpy as np
+
+# Define the Rosenbrock and Rastrigin functions
+def rosenbrock(X):
+    return sum(100 * (X[i+1] - X[i]**2)**2 + (1 - X[i])**2 for i in range(len(X) - 1))
+
+def rastrigin(X):
+    return 10 * len(X) + sum(x**2 - 10 * np.cos(2 * np.pi * x) for x in X)
+
+# Initialize the PSO
+class Particle:
+    def __init__(self, dim, bounds):
+        self.position = np.random.uniform(bounds[0], bounds[1], dim)
+        self.velocity = np.random.uniform(-1, 1, dim)
+        self.best_position = np.copy(self.position)
+        self.best_value = np.inf
+
+# Update velocities and positions
+def update_velocity_and_position(particle, global_best_position, inertia, c1, c2):
+    r1, r2 = np.random.rand(2)
+    cognitive_velocity = c1 * r1 * (particle.best_position - particle.position)
+    social_velocity = c2 * r2 * (global_best_position - particle.position)
+    particle.velocity = inertia * particle.velocity + cognitive_velocity + social_velocity
+    particle.position += particle.velocity
+
+# Parallel PSO with communication strategies
+class ParallelPSO:
+    def __init__(self, func, dim, bounds, num_particles, num_groups, max_iter, comm_strategy):
+        self.func = func
+        self.dim = dim
+        self.bounds = bounds
+        self.num_particles = num_particles
+        self.num_groups = num_groups
+        self.max_iter = max_iter
+        self.comm_strategy = comm_strategy
+        self.particles = []
+        self.global_best_position = None
+        self.global_best_value = np.inf
+        self.inertia = 0.9
+        self.c1 = 2
+        self.c2 = 2
+
+        # Initialize particles
+        particles_per_group = num_particles // num_groups
+        for _ in range(num_groups):
+            group = [Particle(dim, bounds) for _ in range(particles_per_group)]
+            self.particles.append(group)
+
+    def run(self):
+        for iteration in range(self.max_iter):
+            for group in self.particles:
+                for particle in group:
+                    # Evaluate particle
+                    fitness = self.func(particle.position)
+                    if fitness < particle.best_value:
+                        particle.best_value = fitness
+                        particle.best_position = np.copy(particle.position)
+
+                    if fitness < self.global_best_value:
+                        self.global_best_value = fitness
+                        self.global_best_position = np.copy(particle.position)
+
+            # Apply communication strategy
+            if self.comm_strategy == 1:
+                self.comm_strategy_1(iteration)
+            elif self.comm_strategy == 2:
+                self.comm_strategy_2(iteration)
+            elif self.comm_strategy == 3:
+                self.comm_strategy_3(iteration)
+
+            # Update particle velocities and positions
+            for group in self.particles:
+                for particle in group:
+                    update_velocity_and_position(particle, self.global_best_position, self.inertia, self.c1, self.c2)
+
+            print(f"Iteration {iteration+1}/{self.max_iter} - Best Value: {self.global_best_value}")
+
+    def comm_strategy_1(self, iteration):
+        # Migrate best particle from each group to all other groups every R1 iterations
+        if iteration % 10 == 0:
+            best_particle = min(self.particles[0], key=lambda p: p.best_value)
+            for group in self.particles:
+                group[0] = best_particle
+
+    def comm_strategy_2(self, iteration):
+        # Migrate best particle to neighboring group every R2 iterations
+        if iteration % 50 == 0:
+            for i in range(self.num_groups):
+                best_particle = min(self.particles[i], key=lambda p: p.best_value)
+                neighbor_group = (i + 1) % self.num_groups
+                self.particles[neighbor_group][0] = best_particle
+
+    def comm_strategy_3(self, iteration):
+        # Apply strategy 1 to one subgroup and strategy 2 to all subgroups
+        if iteration % 50 == 0:
+            for i in range(self.num_groups):
+                best_particle = min(self.particles[i], key=lambda p: p.best_value)
+                if i % 2 == 0:
+                    self.particles[i][0] = best_particle  # Apply strategy 1
+                else:
+                    neighbor_group = (i + 1) % self.num_groups  # Apply strategy 2
+                    self.particles[neighbor_group][0] = best_particle
+
+# Main execution
+if __name__ == "__main__":
+    # Parameters
+    dim = 30  # Dimensionality of the problem
+    bounds = (-5.12, 5.12)  # Rastrigin and Rosenbrock bounds
+    num_particles = 160  # Total number of particles
+    num_groups = 8  # Number of groups (for parallelism)
+    max_iter = 100  # Reduced number of iterations for testing
+
+    # Choose function: 1 for Rosenbrock, 2 for Rastrigin
+    func_choice = 2  # Choose Rastrigin
+    if func_choice == 1:
+        func = rosenbrock
+    else:
+        func = rastrigin
+
+    # Choose communication strategy: 1, 2, or 3
+    comm_strategy = 1  # For Rosenbrock function, you can experiment with different strategies
+
+    pso = ParallelPSO(func, dim, bounds, num_particles, num_groups, max_iter, comm_strategy)
+    pso.run()
